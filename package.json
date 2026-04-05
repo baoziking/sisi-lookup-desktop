@@ -1,0 +1,41 @@
+{
+  "name": "sisi-lookup-desktop",
+  "version": "1.0.0",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win portable",
+    "dist-installer": "electron-builder --win nsis"
+  },
+  "build": {
+    "appId": "com.baoziking.sisi-lookup",
+    "productName": "Sisi Lookup",
+    "win": {
+      "target": [
+        "portable",
+        "nsis"
+      ],
+      "icon": "icons/icon.png"
+    },
+    "files": [
+      "src/**/*",
+      "icons/**/*"
+    ],
+    "directories": {
+      "output": "release"
+    }
+  },
+  "keywords": [],
+  "author": "baoziking",
+  "license": "ISC",
+  "description": "Desktop dictionary app with global hotkey, OpenRouter LLM + ElevenLabs TTS",
+  "devDependencies": {
+    "@electron/asar": "^3.4.1",
+    "electron": "^41.1.1",
+    "electron-builder": "^26.8.1",
+    "electron-packager": "^17.1.2"
+  },
+  "dependencies": {
+    "electron-store": "^11.0.2"
+  }
+}

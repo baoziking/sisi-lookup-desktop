@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Sisi Lookup - Settings</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', sans-serif; font-size: 13px; color: #1f2937; padding: 24px; background: #f8fafc; }
+    h1 { font-size: 18px; font-weight: 700; color: #6366f1; margin-bottom: 20px; }
+    label { display: block; font-weight: 600; margin-bottom: 4px; margin-top: 14px; font-size: 12px; color: #64748b; }
+    input[type="text"], input[type="password"], select {
+      width: 100%; padding: 8px 10px; border: 1px solid #e2e8f0;
+      border-radius: 6px; font-size: 13px; outline: none;
+    }
+    input:focus, select:focus { border-color: #6366f1; }
+    .hint { font-size: 11px; color: #94a3b8; margin-top: 2px; }
+    .divider { border-top: 1px solid #e2e8f0; margin-top: 16px; padding-top: 4px; }
+    .btn {
+      margin-top: 20px; width: 100%; padding: 10px;
+      background: #6366f1; color: white; border: none;
+      border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer;
+    }
+    .btn:hover { background: #4f46e5; }
+    .saved { color: #22c55e; font-size: 12px; margin-top: 8px; text-align: center; display: none; }
+    .saved.show { display: block; }
+    optgroup { font-weight: 600; }
+    .toggle-row {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-top: 14px; padding: 8px 0;
+    }
+    .toggle-label { font-weight: 600; font-size: 12px; color: #64748b; }
+    .toggle {
+      position: relative; width: 40px; height: 22px; cursor: pointer;
+    }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider {
+      position: absolute; inset: 0; background: #cbd5e1; border-radius: 11px; transition: 0.2s;
+    }
+    .toggle-slider::before {
+      content: ''; position: absolute; width: 18px; height: 18px; left: 2px; bottom: 2px;
+      background: white; border-radius: 50%; transition: 0.2s;
+    }
+    .toggle input:checked + .toggle-slider { background: #6366f1; }
+    .toggle input:checked + .toggle-slider::before { transform: translateX(18px); }
+    .hotkey-examples { font-size: 11px; color: #94a3b8; margin-top: 4px; line-height: 1.6; }
+    .hotkey-examples code { background: #f1f5f9; padding: 1px 4px; border-radius: 3px; font-size: 11px; }
+  </style>
+</head>
+<body>
+  <h1>Sisi Lookup Settings</h1>
+
+  <label>OpenRouter API Key</label>
+  <input type="password" id="openrouterKey" placeholder="sk-or-v1-...">
+  <div class="hint">openrouter.ai/keys</div>
+
+  <label>Model</label>
+  <select id="model">
+    <optgroup label="Claude">
+      <option value="anthropic/claude-sonnet-4">Claude Sonnet 4</option>
+      <option value="anthropic/claude-haiku-4">Claude Haiku 4</option>
+    </optgroup>
+    <optgroup label="ChatGPT">
+      <option value="openai/gpt-4.1">GPT-4.1</option>
+      <option value="openai/gpt-4.1-mini">GPT-4.1 Mini</option>
+      <option value="openai/gpt-4.1-nano">GPT-4.1 Nano</option>
+      <option value="openai/gpt-4o">GPT-4o</option>
+      <option value="openai/gpt-4o-mini">GPT-4o Mini</option>
+    </optgroup>
+    <optgroup label="DeepSeek">
+      <option value="deepseek/deepseek-chat-v3-0324">DeepSeek V3</option>
+      <option value="deepseek/deepseek-r1">DeepSeek R1</option>
+    </optgroup>
+  </select>
+
+  <div class="divider"></div>
+
+  <label>TTS Server URL</label>
+  <input type="text" id="serverUrl" placeholder="http://192.168.99.47">
+  <div class="hint">ElevenLabs TTS pronunciation server</div>
+
+  <div class="divider"></div>
+
+  <label>Global Hotkey</label>
+  <input type="text" id="hotkey" placeholder="Ctrl+Shift+D">
+  <div class="hotkey-examples">
+    Examples: <code>Ctrl+Shift+D</code> <code>Ctrl+Alt+L</code> <code>Ctrl+Shift+Space</code> <code>Alt+Q</code><br>
+    Avoid: <code>Ctrl+C</code> <code>Ctrl+V</code> or other system shortcuts
+  </div>
+
+  <label>Window & Font Scale</label>
+  <div style="display:flex;align-items:center;gap:10px">
+    <input type="range" id="windowScale" min="80" max="150" step="10" style="flex:1;accent-color:#6366f1">
+    <span id="scaleValue" style="font-weight:600;font-size:13px;width:40px;text-align:right">100%</span>
+  </div>
+  <div class="hint">Adjust popup window and font size (80%-150%)</div>
+
+  <div class="toggle-row">
+    <span class="toggle-label">Auto-start on login</span>
+    <label class="toggle">
+      <input type="checkbox" id="autoStart">
+      <span class="toggle-slider"></span>
+    </label>
+  </div>
+
+  <button class="btn" id="saveBtn">Save Settings</button>
+  <div class="saved" id="savedMsg">Settings saved! Hotkey re-registered.</div>
+
+  <script>
+    const scaleSlider = document.getElementById('windowScale')
+    const scaleValue = document.getElementById('scaleValue')
+    scaleSlider.addEventListener('input', () => { scaleValue.textContent = scaleSlider.value + '%' })
+
+    window.api.getSettings().then(data => {
+      document.getElementById('openrouterKey').value = data.openrouterKey || ''
+      document.getElementById('model').value = data.model || 'anthropic/claude-sonnet-4'
+      document.getElementById('serverUrl').value = data.serverUrl || 'http://192.168.99.47'
+      document.getElementById('hotkey').value = data.hotkey || 'Ctrl+Shift+D'
+      document.getElementById('autoStart').checked = data.autoStart || false
+      scaleSlider.value = data.windowScale || 100
+      scaleValue.textContent = (data.windowScale || 100) + '%'
+    })
+
+    document.getElementById('saveBtn').addEventListener('click', async () => {
+      await window.api.saveSettings({
+        openrouterKey: document.getElementById('openrouterKey').value.trim(),
+        model: document.getElementById('model').value,
+        serverUrl: document.getElementById('serverUrl').value.trim(),
+        hotkey: document.getElementById('hotkey').value.trim(),
+        autoStart: document.getElementById('autoStart').checked,
+        windowScale: parseInt(scaleSlider.value),
+      })
+      const msg = document.getElementById('savedMsg')
+      msg.classList.add('show')
+      setTimeout(() => msg.classList.remove('show'), 2000)
+    })
+  </script>
+</body>
+</html>
