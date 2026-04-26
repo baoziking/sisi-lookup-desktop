@@ -22,12 +22,16 @@ const isLinux = process.platform === 'linux'
 app.whenReady().then(() => {
   store = new Store({
     defaults: {
+      provider: 'openrouter',
       openrouterKey: '',
+      nobleKey: '',
+      nobleBaseUrl: 'http://192.168.99.133:5051/v1',
       model: 'anthropic/claude-sonnet-4',
       serverUrl: 'http://192.168.99.47',
       hotkey: 'Ctrl+Shift+D',
       autoStart: false,
       windowScale: 100,
+      ttsEngine: 'edge',
     }
   })
 
@@ -49,7 +53,9 @@ app.whenReady().then(() => {
   ipcMain.handle('close-lookup', () => { if (lookupWin && !lookupWin.isDestroyed()) lookupWin.hide() })
 
   // Show settings on first run if no API key
-  if (!store.get('openrouterKey')) {
+  const provider = store.get('provider') || 'openrouter'
+  const hasKey = provider === 'noble' ? !!store.get('nobleKey') : !!store.get('openrouterKey')
+  if (!hasKey) {
     openSettings()
   }
 
@@ -244,9 +250,28 @@ function openSettings() {
 
 // ── API: Lookup ──
 async function doLookup(text) {
+  const provider = store.get('provider') || 'openrouter'
   const openrouterKey = store.get('openrouterKey')
+  const nobleKey = store.get('nobleKey')
+  const nobleBaseUrl = store.get('nobleBaseUrl') || 'http://192.168.99.133:5051/v1'
   const model = store.get('model')
-  if (!openrouterKey) return { error: 'Please set OpenRouter API key in settings (right-click tray icon)' }
+
+  let apiUrl, apiKey, headers
+  if (provider === 'noble') {
+    if (!nobleKey) return { error: 'Please set Noble API key in settings (right-click tray icon)' }
+    apiUrl = nobleBaseUrl.replace(/\/+$/, '') + '/chat/completions'
+    apiKey = nobleKey
+    headers = { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' }
+  } else {
+    if (!openrouterKey) return { error: 'Please set OpenRouter API key in settings (right-click tray icon)' }
+    apiUrl = 'https://openrouter.ai/api/v1/chat/completions'
+    apiKey = openrouterKey
+    headers = {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+      'HTTP-Referer': 'https://sisi-lookup.app',
+    }
+  }
 
   const isWord = text.split(/\s+/).length <= 3
 
@@ -261,22 +286,22 @@ Return a JSON object:
 Return ONLY the JSON object.`
 
   try {
-    const resp = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    const body = {
+      model,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: text },
+      ],
+    }
+    if (provider !== 'noble') {
+      body.max_tokens = 800
+      body.temperature = 0.3
+    }
+
+    const resp = await fetch(apiUrl, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openrouterKey}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://sisi-lookup.app',
-      },
-      body: JSON.stringify({
-        model,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: text },
-        ],
-        max_tokens: 800,
-        temperature: 0.3,
-      }),
+      headers,
+      body: JSON.stringify(body),
     })
 
     if (!resp.ok) {
@@ -301,13 +326,14 @@ Return ONLY the JSON object.`
 // ── API: TTS ──
 async function doTTS(text) {
   const serverUrl = store.get('serverUrl')
+  const ttsEngine = store.get('ttsEngine', 'edge')
   if (!serverUrl) return { error: 'Server URL not set' }
 
   try {
     const resp = await fetch(`${serverUrl}/api/notes/tts/speak`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: text.trim() }),
+      body: JSON.stringify({ text: text.trim(), provider: ttsEngine }),
     })
     if (!resp.ok) return { error: `TTS error: ${resp.status}` }
 

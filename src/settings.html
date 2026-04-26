@@ -49,9 +49,27 @@
 <body>
   <h1>Sisi Lookup Settings</h1>
 
-  <label>OpenRouter API Key</label>
-  <input type="password" id="openrouterKey" placeholder="sk-or-v1-...">
-  <div class="hint">openrouter.ai/keys</div>
+  <label>LLM Provider</label>
+  <select id="provider">
+    <option value="openrouter">OpenRouter (云端)</option>
+    <option value="noble">Noble (本地 LAN-only, 0 成本)</option>
+  </select>
+  <div class="hint" id="nobleHint" style="display:none;color:#d97706">
+    ⚠ Noble 仅在 192.168.99.0/24 内网可用
+  </div>
+
+  <div id="openrouterFields">
+    <label>OpenRouter API Key</label>
+    <input type="password" id="openrouterKey" placeholder="sk-or-v1-...">
+    <div class="hint">openrouter.ai/keys</div>
+  </div>
+
+  <div id="nobleFields" style="display:none">
+    <label>Noble Base URL</label>
+    <input type="text" id="nobleBaseUrl" placeholder="http://192.168.99.133:5051/v1">
+    <label>Noble API Key</label>
+    <input type="password" id="nobleKey" placeholder="...">
+  </div>
 
   <label>Model</label>
   <select id="model">
@@ -70,13 +88,25 @@
       <option value="deepseek/deepseek-chat-v3-0324">DeepSeek V3</option>
       <option value="deepseek/deepseek-r1">DeepSeek R1</option>
     </optgroup>
+    <optgroup label="Noble (local)">
+      <option value="gpt-5.5">gpt-5.5 (推荐)</option>
+      <option value="gpt-5.4">gpt-5.4</option>
+      <option value="gpt-5.4-mini">gpt-5.4-mini (快)</option>
+      <option value="gpt-5.3-codex">gpt-5.3-codex</option>
+    </optgroup>
   </select>
 
   <div class="divider"></div>
 
   <label>TTS Server URL</label>
   <input type="text" id="serverUrl" placeholder="http://192.168.99.47">
-  <div class="hint">ElevenLabs TTS pronunciation server</div>
+  <div class="hint">TTS pronunciation server</div>
+
+  <label>TTS Engine</label>
+  <select id="ttsEngine">
+    <option value="edge">Edge TTS (free)</option>
+    <option value="elevenlabs">ElevenLabs (uses credits)</option>
+  </select>
 
   <div class="divider"></div>
 
@@ -106,30 +136,48 @@
   <div class="saved" id="savedMsg">Settings saved! Hotkey re-registered.</div>
 
   <script>
-    const scaleSlider = document.getElementById('windowScale')
-    const scaleValue = document.getElementById('scaleValue')
+    const $ = (id) => document.getElementById(id)
+    const scaleSlider = $('windowScale')
+    const scaleValue = $('scaleValue')
     scaleSlider.addEventListener('input', () => { scaleValue.textContent = scaleSlider.value + '%' })
 
+    function syncProviderUI(p) {
+      $('openrouterFields').style.display = p === 'openrouter' ? '' : 'none'
+      $('nobleFields').style.display = p === 'noble' ? '' : 'none'
+      $('nobleHint').style.display = p === 'noble' ? '' : 'none'
+    }
+
     window.api.getSettings().then(data => {
-      document.getElementById('openrouterKey').value = data.openrouterKey || ''
-      document.getElementById('model').value = data.model || 'anthropic/claude-sonnet-4'
-      document.getElementById('serverUrl').value = data.serverUrl || 'http://192.168.99.47'
-      document.getElementById('hotkey').value = data.hotkey || 'Ctrl+Shift+D'
-      document.getElementById('autoStart').checked = data.autoStart || false
+      $('provider').value = data.provider || 'openrouter'
+      $('openrouterKey').value = data.openrouterKey || ''
+      $('nobleKey').value = data.nobleKey || ''
+      $('nobleBaseUrl').value = data.nobleBaseUrl || 'http://192.168.99.133:5051/v1'
+      $('model').value = data.model || 'anthropic/claude-sonnet-4'
+      $('serverUrl').value = data.serverUrl || 'http://192.168.99.47'
+      $('ttsEngine').value = data.ttsEngine || 'edge'
+      $('hotkey').value = data.hotkey || 'Ctrl+Shift+D'
+      $('autoStart').checked = data.autoStart || false
       scaleSlider.value = data.windowScale || 100
       scaleValue.textContent = (data.windowScale || 100) + '%'
+      syncProviderUI($('provider').value)
     })
 
-    document.getElementById('saveBtn').addEventListener('click', async () => {
+    $('provider').addEventListener('change', (e) => syncProviderUI(e.target.value))
+
+    $('saveBtn').addEventListener('click', async () => {
       await window.api.saveSettings({
-        openrouterKey: document.getElementById('openrouterKey').value.trim(),
-        model: document.getElementById('model').value,
-        serverUrl: document.getElementById('serverUrl').value.trim(),
-        hotkey: document.getElementById('hotkey').value.trim(),
-        autoStart: document.getElementById('autoStart').checked,
+        provider: $('provider').value,
+        openrouterKey: $('openrouterKey').value.trim(),
+        nobleKey: $('nobleKey').value.trim(),
+        nobleBaseUrl: $('nobleBaseUrl').value.trim() || 'http://192.168.99.133:5051/v1',
+        model: $('model').value,
+        serverUrl: $('serverUrl').value.trim(),
+        ttsEngine: $('ttsEngine').value,
+        hotkey: $('hotkey').value.trim(),
+        autoStart: $('autoStart').checked,
         windowScale: parseInt(scaleSlider.value),
       })
-      const msg = document.getElementById('savedMsg')
+      const msg = $('savedMsg')
       msg.classList.add('show')
       setTimeout(() => msg.classList.remove('show'), 2000)
     })
